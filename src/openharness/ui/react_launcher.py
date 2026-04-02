@@ -22,6 +22,7 @@ def build_backend_command(
     *,
     cwd: str | None = None,
     model: str | None = None,
+    provider: str | None = None,
     base_url: str | None = None,
     system_prompt: str | None = None,
     api_key: str | None = None,
@@ -32,6 +33,8 @@ def build_backend_command(
         command.extend(["--cwd", cwd])
     if model:
         command.extend(["--model", model])
+    if provider:
+        command.extend(["--provider", provider])
     if base_url:
         command.extend(["--base-url", base_url])
     if system_prompt:
@@ -46,6 +49,7 @@ async def launch_react_tui(
     prompt: str | None = None,
     cwd: str | None = None,
     model: str | None = None,
+    provider: str | None = None,
     base_url: str | None = None,
     system_prompt: str | None = None,
     api_key: str | None = None,
@@ -73,6 +77,7 @@ async def launch_react_tui(
             "backend_command": build_backend_command(
                 cwd=cwd or str(Path.cwd()),
                 model=model,
+                provider=provider,
                 base_url=base_url,
                 system_prompt=system_prompt,
                 api_key=api_key,

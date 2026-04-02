@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 
 from openharness.config.settings import Settings
 
@@ -19,6 +20,15 @@ class ProviderInfo:
 
 def detect_provider(settings: Settings) -> ProviderInfo:
     """Infer the active provider and rough capability set."""
+    configured_provider = settings.provider.lower().strip()
+    if configured_provider in {"copilot", "copilot-sdk", "copilot_sdk"}:
+        return ProviderInfo(
+            name="copilot-sdk",
+            auth_kind="github_oauth_or_token",
+            voice_supported=False,
+            voice_reason="voice mode is not wired for Copilot SDK in this build",
+        )
+
     base_url = (settings.base_url or "").lower()
     model = settings.model.lower()
     if "moonshot" in base_url or model.startswith("kimi"):
@@ -59,6 +69,14 @@ def detect_provider(settings: Settings) -> ProviderInfo:
 
 def auth_status(settings: Settings) -> str:
     """Return a compact auth status string."""
+    provider = settings.provider.lower().strip()
+    if provider in {"copilot", "copilot-sdk", "copilot_sdk"}:
+        if settings.copilot_github_token:
+            return "configured"
+        if os.environ.get("COPILOT_GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"):
+            return "configured"
+        return "cli-login-or-token"
+
     if settings.api_key:
         return "configured"
     return "missing"

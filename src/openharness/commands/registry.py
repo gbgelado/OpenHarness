@@ -267,9 +267,17 @@ def create_default_command_registry() -> CommandRegistry:
     async def _usage_handler(_: str, context: CommandContext) -> CommandResult:
         usage = context.engine.total_usage
         estimated = estimate_conversation_tokens(context.engine.messages)
+        provider = (
+            context.app_state.get().provider
+            if context.app_state is not None
+            else detect_provider(load_settings()).name
+        )
+        usage_source = "provider-reported" if usage.total_tokens > 0 else "estimated"
         return CommandResult(
             message=(
+                f"Provider: {provider}\n"
                 f"Actual usage: input={usage.input_tokens} output={usage.output_tokens}\n"
+                f"Usage source: {usage_source}\n"
                 f"Estimated conversation tokens: {estimated}\n"
                 f"Messages: {len(context.engine.messages)}"
             )
@@ -277,23 +285,28 @@ def create_default_command_registry() -> CommandRegistry:
 
     async def _cost_handler(_: str, context: CommandContext) -> CommandResult:
         usage = context.engine.total_usage
-        model = context.app_state.get().model if context.app_state is not None else load_settings().model
+        state = context.app_state.get() if context.app_state is not None else None
+        model = state.model if state is not None else load_settings().model
+        provider = state.provider if state is not None else detect_provider(load_settings()).name
+        usage_source = "provider-reported" if usage.total_tokens > 0 else "estimated"
         estimated_cost = "unavailable"
-        if model.startswith("claude-3-5-sonnet"):
+        if provider.startswith("anthropic") and model.startswith("claude-3-5-sonnet"):
             estimated = (usage.input_tokens * 3.0 + usage.output_tokens * 15.0) / 1_000_000
             estimated_cost = f"${estimated:.4f} (estimated)"
-        elif model.startswith("claude-3-7-sonnet"):
+        elif provider.startswith("anthropic") and model.startswith("claude-3-7-sonnet"):
             estimated = (usage.input_tokens * 3.0 + usage.output_tokens * 15.0) / 1_000_000
             estimated_cost = f"${estimated:.4f} (estimated)"
-        elif model.startswith("claude-3-opus"):
+        elif provider.startswith("anthropic") and model.startswith("claude-3-opus"):
             estimated = (usage.input_tokens * 15.0 + usage.output_tokens * 75.0) / 1_000_000
             estimated_cost = f"${estimated:.4f} (estimated)"
         return CommandResult(
             message=(
+                f"Provider: {provider}\n"
                 f"Model: {model}\n"
                 f"Input tokens: {usage.input_tokens}\n"
                 f"Output tokens: {usage.output_tokens}\n"
                 f"Total tokens: {usage.total_tokens}\n"
+                f"Usage source: {usage_source}\n"
                 f"Estimated cost: {estimated_cost}"
             )
         )

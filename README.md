@@ -87,6 +87,11 @@ OpenHarness is an open-source Python implementation designed for **researchers, 
 - **Node.js 18+** (for the React terminal UI)
 - An LLM API key
 
+Optional for GitHub Copilot integration:
+
+- **Copilot CLI** installed and authenticated
+- **Copilot SDK for Python** (`uv sync --extra copilot`)
+
 ### Install & Run
 
 ```bash
@@ -103,6 +108,9 @@ export ANTHROPIC_MODEL=kimi-k2.5
 # Launch
 oh                    # if venv is activated
 uv run oh             # without activating venv
+
+# Optional: use Copilot SDK as provider
+uv run oh --provider copilot-sdk --model gpt-5
 ```
 
 <p align="center">
@@ -173,17 +181,17 @@ The model decides **what** to do. The harness handles **how** — safely, effici
 
 ### 🔧 Tools (43+)
 
-| Category | Tools | Description |
-|----------|-------|-------------|
-| **File I/O** | Bash, Read, Write, Edit, Glob, Grep | Core file operations with permission checks |
-| **Search** | WebFetch, WebSearch, ToolSearch, LSP | Web and code search capabilities |
-| **Notebook** | NotebookEdit | Jupyter notebook cell editing |
-| **Agent** | Agent, SendMessage, TeamCreate/Delete | Subagent spawning and coordination |
-| **Task** | TaskCreate/Get/List/Update/Stop/Output | Background task management |
-| **MCP** | MCPTool, ListMcpResources, ReadMcpResource | Model Context Protocol integration |
-| **Mode** | EnterPlanMode, ExitPlanMode, Worktree | Workflow mode switching |
-| **Schedule** | CronCreate/List/Delete, RemoteTrigger | Scheduled and remote execution |
-| **Meta** | Skill, Config, Brief, Sleep, AskUser | Knowledge loading, configuration, interaction |
+| Category     | Tools                                      | Description                                   |
+| ------------ | ------------------------------------------ | --------------------------------------------- |
+| **File I/O** | Bash, Read, Write, Edit, Glob, Grep        | Core file operations with permission checks   |
+| **Search**   | WebFetch, WebSearch, ToolSearch, LSP       | Web and code search capabilities              |
+| **Notebook** | NotebookEdit                               | Jupyter notebook cell editing                 |
+| **Agent**    | Agent, SendMessage, TeamCreate/Delete      | Subagent spawning and coordination            |
+| **Task**     | TaskCreate/Get/List/Update/Stop/Output     | Background task management                    |
+| **MCP**      | MCPTool, ListMcpResources, ReadMcpResource | Model Context Protocol integration            |
+| **Mode**     | EnterPlanMode, ExitPlanMode, Worktree      | Workflow mode switching                       |
+| **Schedule** | CronCreate/List/Delete, RemoteTrigger      | Scheduled and remote execution                |
+| **Meta**     | Skill, Config, Brief, Sleep, AskUser       | Knowledge loading, configuration, interaction |
 
 Every tool has:
 - **Pydantic input validation** — structured, type-safe inputs
@@ -214,14 +222,14 @@ Available Skills:
 
 **Compatible with [claude-code plugins](https://github.com/anthropics/claude-code/tree/main/plugins)**. Tested with 12 official plugins:
 
-| Plugin | Type | What it does |
-|--------|------|-------------|
-| `commit-commands` | Commands | Git commit, push, PR workflows |
-| `security-guidance` | Hooks | Security warnings on file edits |
-| `hookify` | Commands + Agents | Create custom behavior hooks |
-| `feature-dev` | Commands | Feature development workflow |
-| `code-review` | Agents | Multi-agent PR review |
-| `pr-review-toolkit` | Agents | Specialized PR review agents |
+| Plugin              | Type              | What it does                    |
+| ------------------- | ----------------- | ------------------------------- |
+| `commit-commands`   | Commands          | Git commit, push, PR workflows  |
+| `security-guidance` | Hooks             | Security warnings on file edits |
+| `hookify`           | Commands + Agents | Create custom behavior hooks    |
+| `feature-dev`       | Commands          | Feature development workflow    |
+| `code-review`       | Agents            | Multi-agent PR review           |
+| `pr-review-toolkit` | Agents            | Specialized PR review agents    |
 
 ```bash
 # Manage plugins
@@ -234,11 +242,11 @@ oh plugin enable <name>
 
 Multi-level safety with fine-grained control:
 
-| Mode | Behavior | Use Case |
-|------|----------|----------|
-| **Default** | Ask before write/execute | Daily development |
-| **Auto** | Allow everything | Sandboxed environments |
-| **Plan Mode** | Block all writes | Large refactors, review first |
+| Mode          | Behavior                 | Use Case                      |
+| ------------- | ------------------------ | ----------------------------- |
+| **Default**   | Ask before write/execute | Daily development             |
+| **Auto**      | Allow everything         | Sandboxed environments        |
+| **Plan Mode** | Block all writes         | Large refactors, review first |
 
 **Path-level rules** in `settings.json`:
 ```json
@@ -269,6 +277,7 @@ oh [OPTIONS] COMMAND [ARGS]
 
 Session:     -c/--continue, -r/--resume, -n/--name
 Model:       -m/--model, --effort, --max-turns
+Provider:    --provider anthropic|copilot-sdk
 Output:      -p/--print, --output-format text|json|stream-json
 Permissions: --permission-mode, --dangerously-skip-permissions
 Context:     -s/--system-prompt, --append-system-prompt, --settings
@@ -277,18 +286,25 @@ Advanced:    -d/--debug, --mcp-config, --bare
 Subcommands: oh mcp | oh plugin | oh auth
 ```
 
+### Provider Notes
+
+- `anthropic` remains the default provider.
+- `copilot-sdk` uses the official GitHub Copilot SDK (which communicates with Copilot CLI).
+- If a requested Copilot model is unavailable, OpenHarness falls back to an available model and logs a warning.
+- `/usage` and `/cost` now show usage source (`provider-reported` vs `estimated`).
+
 ---
 
 ## 📊 Test Results
 
-| Suite | Tests | Status |
-|-------|-------|--------|
-| Unit + Integration | 114 | ✅ All passing |
-| CLI Flags E2E | 6 | ✅ Real model calls |
-| Harness Features E2E | 9 | ✅ Retry, skills, parallel, permissions |
-| React TUI E2E | 3 | ✅ Welcome, conversation, status |
-| TUI Interactions E2E | 4 | ✅ Commands, permissions, shortcuts |
-| Real Skills + Plugins | 12 | ✅ anthropics/skills + claude-code/plugins |
+| Suite                 | Tests | Status                                    |
+| --------------------- | ----- | ----------------------------------------- |
+| Unit + Integration    | 114   | ✅ All passing                             |
+| CLI Flags E2E         | 6     | ✅ Real model calls                        |
+| Harness Features E2E  | 9     | ✅ Retry, skills, parallel, permissions    |
+| React TUI E2E         | 3     | ✅ Welcome, conversation, status           |
+| TUI Interactions E2E  | 4     | ✅ Commands, permissions, shortcuts        |
+| Real Skills + Plugins | 12    | ✅ anthropics/skills + claude-code/plugins |
 
 ```bash
 # Run all tests
@@ -360,15 +376,15 @@ Add commands in `commands/*.md`, hooks in `hooks/hooks.json`, agents in `agents/
 
 OpenHarness is a **community-driven research project**. We welcome contributions in:
 
-| Area | Examples |
-|------|---------|
-| **Tools** | New tool implementations for specific domains |
-| **Skills** | Domain knowledge `.md` files (finance, science, DevOps...) |
-| **Plugins** | Workflow plugins with commands, hooks, agents |
-| **Providers** | Support for more LLM backends (OpenAI, Ollama, etc.) |
-| **Multi-Agent** | Coordination protocols, team patterns |
-| **Testing** | E2E scenarios, edge cases, benchmarks |
-| **Documentation** | Architecture guides, tutorials, translations |
+| Area              | Examples                                                   |
+| ----------------- | ---------------------------------------------------------- |
+| **Tools**         | New tool implementations for specific domains              |
+| **Skills**        | Domain knowledge `.md` files (finance, science, DevOps...) |
+| **Plugins**       | Workflow plugins with commands, hooks, agents              |
+| **Providers**     | Support for more LLM backends (OpenAI, Ollama, etc.)       |
+| **Multi-Agent**   | Coordination protocols, team patterns                      |
+| **Testing**       | E2E scenarios, edge cases, benchmarks                      |
+| **Documentation** | Architecture guides, tutorials, translations               |
 
 ```bash
 # Development setup

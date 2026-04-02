@@ -209,6 +209,12 @@ def main(
         help="Model alias (e.g. 'sonnet', 'opus') or full model ID",
         rich_help_panel="Model & Effort",
     ),
+    provider: str | None = typer.Option(
+        None,
+        "--provider",
+        help="Provider backend: anthropic (default) or copilot-sdk",
+        rich_help_panel="Model & Effort",
+    ),
     effort: str | None = typer.Option(
         None,
         "--effort",
@@ -354,6 +360,7 @@ def main(
                 output_format=output_format or "text",
                 cwd=cwd,
                 model=model,
+                provider=provider,
                 base_url=base_url,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
@@ -369,6 +376,7 @@ def main(
             prompt=None,
             cwd=cwd,
             model=model,
+            provider=provider,
             backend_only=backend_only,
             base_url=base_url,
             system_prompt=system_prompt,
