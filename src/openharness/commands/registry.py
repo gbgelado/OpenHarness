@@ -26,6 +26,7 @@ from openharness.bridge.types import WorkSecret
 from openharness.bridge.work_secret import build_sdk_url, decode_work_secret, encode_work_secret
 from openharness.api.provider import auth_status, detect_provider
 from openharness.config.settings import Settings, load_settings, save_settings
+from openharness.api.copilot_client import CopilotSdkApiClient
 from openharness.engine.messages import ConversationMessage
 from openharness.engine.query_engine import QueryEngine
 from openharness.memory import (
@@ -992,6 +993,36 @@ def create_default_command_registry() -> CommandRegistry:
             return CommandResult(message=f"Model set to {tokens[1]}. Restart session to use it.")
         return CommandResult(message="Usage: /model [show|set MODEL]")
 
+    async def _models_handler(args: str, context: CommandContext) -> CommandResult:
+        """List available models for the current provider."""
+        settings = load_settings()
+        provider_info = detect_provider(settings)
+        
+        if provider_info.name == "copilot-sdk":
+            try:
+                client = CopilotSdkApiClient(
+                    cli_path=settings.copilot_cli_path,
+                    cli_url=settings.copilot_cli_url,
+                    github_token=settings.copilot_github_token,
+                )
+                models = await client.list_models()
+                if models:
+                    model_list = "\n".join(f"  • {model}" for model in models)
+                    return CommandResult(message=f"Available Copilot models:\n{model_list}")
+                return CommandResult(message="No Copilot models found. Ensure Copilot CLI is installed and authenticated.")
+            except Exception as e:
+                return CommandResult(message=f"Error listing Copilot models: {str(e)}")
+        else:
+            # Anthropic models
+            anthropic_models = [
+                "claude-3-5-sonnet-20241022",
+                "claude-3-7-sonnet-20250219",
+                "claude-3-opus-20250729",
+                "claude-3-haiku-20250307",
+            ]
+            model_list = "\n".join(f"  • {model}" for model in anthropic_models)
+            return CommandResult(message=f"Available Anthropic models:\n{model_list}")
+
     async def _theme_handler(args: str, context: CommandContext) -> CommandResult:
         settings = load_settings()
         tokens = args.split(maxsplit=1)
@@ -1313,6 +1344,7 @@ def create_default_command_registry() -> CommandRegistry:
     registry.register(SlashCommand("effort", "Show or update reasoning effort", _effort_handler))
     registry.register(SlashCommand("passes", "Show or update reasoning pass count", _passes_handler))
     registry.register(SlashCommand("model", "Show or update the default model", _model_handler))
+    registry.register(SlashCommand("models", "List available models for current provider", _models_handler))
     registry.register(SlashCommand("theme", "Show or update the theme", _theme_handler))
     registry.register(SlashCommand("output-style", "Show or update output style", _output_style_handler))
     registry.register(SlashCommand("keybindings", "Show resolved keybindings", _keybindings_handler))

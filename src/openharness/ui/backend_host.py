@@ -64,6 +64,8 @@ class ReactBackendHost:
             ask_user_prompt=self._ask_question,
         )
         await start_runtime(self._bundle)
+        from openharness.ui.runtime import sync_app_state
+        sync_app_state(self._bundle)
         await self._emit(
             BackendEvent.ready(
                 self._bundle.app_state.get(),
