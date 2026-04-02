@@ -13,6 +13,7 @@ from openharness.config.settings import Settings, load_settings, save_settings
 class TestSettings:
     def test_defaults(self):
         s = Settings()
+        assert s.provider == "anthropic"
         assert s.api_key == ""
         assert s.model == "claude-sonnet-4-20250514"
         assert s.max_tokens == 16384
@@ -102,12 +103,14 @@ class TestLoadSaveSettings:
     def test_load_applies_env_overrides(self, tmp_path: Path, monkeypatch):
         path = tmp_path / "settings.json"
         path.write_text(json.dumps({"model": "from-file", "base_url": "https://file.example"}))
+        monkeypatch.setenv("OPENHARNESS_PROVIDER", "copilot-sdk")
         monkeypatch.setenv("ANTHROPIC_MODEL", "from-env-model")
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://env.example/anthropic")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-env-override")
 
         s = load_settings(path)
 
+        assert s.provider == "copilot-sdk"
         assert s.model == "from-env-model"
         assert s.base_url == "https://env.example/anthropic"
         assert s.api_key == "sk-env-override"

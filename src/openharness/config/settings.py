@@ -50,10 +50,14 @@ class Settings(BaseModel):
     """Main settings model for OpenHarness."""
 
     # API configuration
+    provider: str = "anthropic"
     api_key: str = ""
     model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 16384
     base_url: str | None = None
+    copilot_cli_path: str | None = None
+    copilot_cli_url: str | None = None
+    copilot_github_token: str | None = None
 
     # Behavior
     system_prompt: str | None = None
@@ -99,6 +103,10 @@ class Settings(BaseModel):
 def _apply_env_overrides(settings: Settings) -> Settings:
     """Apply supported environment variable overrides over loaded settings."""
     updates: dict[str, Any] = {}
+    provider = os.environ.get("OPENHARNESS_PROVIDER")
+    if provider:
+        updates["provider"] = provider
+
     model = os.environ.get("ANTHROPIC_MODEL") or os.environ.get("OPENHARNESS_MODEL")
     if model:
         updates["model"] = model
@@ -114,6 +122,22 @@ def _apply_env_overrides(settings: Settings) -> Settings:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if api_key:
         updates["api_key"] = api_key
+
+    copilot_cli_path = os.environ.get("COPILOT_CLI_PATH")
+    if copilot_cli_path:
+        updates["copilot_cli_path"] = copilot_cli_path
+
+    copilot_cli_url = os.environ.get("COPILOT_CLI_URL")
+    if copilot_cli_url:
+        updates["copilot_cli_url"] = copilot_cli_url
+
+    copilot_github_token = (
+        os.environ.get("COPILOT_GITHUB_TOKEN")
+        or os.environ.get("GH_TOKEN")
+        or os.environ.get("GITHUB_TOKEN")
+    )
+    if copilot_github_token:
+        updates["copilot_github_token"] = copilot_github_token
 
     if not updates:
         return settings

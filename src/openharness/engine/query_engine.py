@@ -53,6 +53,11 @@ class QueryEngine:
         return list(self._messages)
 
     @property
+    def model(self) -> str:
+        """Return the currently active model."""
+        return self._model
+
+    @property
     def total_usage(self):
         """Return the total usage across all turns."""
         return self._cost_tracker.total

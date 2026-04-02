@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from typing import Awaitable, Callable
 
 from openharness.api.client import AnthropicApiClient, SupportsStreamingMessages
+from openharness.api.copilot_client import CopilotSdkApiClient
 from openharness.api.provider import auth_status, detect_provider
 from openharness.bridge import get_bridge_manager
 from openharness.commands import CommandContext, CommandResult, create_default_command_registry
@@ -24,6 +26,8 @@ from openharness.state import AppState, AppStateStore
 from openharness.services.session_storage import save_session_snapshot
 from openharness.tools import ToolRegistry, create_default_tool_registry
 from openharness.keybindings import load_keybindings
+
+log = logging.getLogger(__name__)
 
 PermissionPrompt = Callable[[str, str], Awaitable[bool]]
 AskUserPrompt = Callable[[str], Awaitable[str]]
@@ -90,6 +94,7 @@ async def build_runtime(
     *,
     prompt: str | None = None,
     model: str | None = None,
+    provider: str | None = None,
     base_url: str | None = None,
     system_prompt: str | None = None,
     api_key: str | None = None,
@@ -100,34 +105,49 @@ async def build_runtime(
     """Build the shared runtime for an OpenHarness session."""
     settings = load_settings().merge_cli_overrides(
         model=model,
+        provider=provider,
         base_url=base_url,
         system_prompt=system_prompt,
         api_key=api_key,
     )
     cwd = str(Path.cwd())
     plugins = load_plugins(settings, cwd)
-    resolved_api_client = api_client or AnthropicApiClient(
-        api_key=settings.resolve_api_key(),
-        base_url=settings.base_url,
-    )
+    provider_info = detect_provider(settings)
+    effective_model = settings.model
+    if api_client is not None:
+        resolved_api_client = api_client
+    elif provider_info.name == "copilot-sdk":
+        resolved_api_client = CopilotSdkApiClient(
+            cli_path=settings.copilot_cli_path,
+            cli_url=settings.copilot_cli_url,
+            github_token=settings.copilot_github_token,
+        )
+        resolved_model, warning = await resolved_api_client.resolve_model(settings.model)
+        if warning:
+            log.warning("Copilot model resolution: %s", warning)
+        effective_model = resolved_model
+    else:
+        resolved_api_client = AnthropicApiClient(
+            api_key=settings.resolve_api_key(),
+            base_url=settings.base_url,
+        )
     mcp_manager = McpClientManager(load_mcp_server_configs(settings, plugins))
     await mcp_manager.connect_all()
     tool_registry = create_default_tool_registry(mcp_manager)
-    provider = detect_provider(settings)
     bridge_manager = get_bridge_manager()
     app_state = AppStateStore(
         AppState(
-            model=settings.model,
+            model=effective_model,
             permission_mode=settings.permission.mode.value,
             theme=settings.theme,
             cwd=cwd,
-            provider=provider.name,
+            provider=provider_info.name,
             auth_status=auth_status(settings),
             base_url=settings.base_url or "",
             vim_enabled=settings.vim_mode,
             voice_enabled=settings.voice_mode,
-            voice_available=provider.voice_supported,
-            voice_reason=provider.voice_reason,
+            voice_available=provider_info.voice_supported,
+            voice_reason=provider_info.voice_reason,
             fast_mode=settings.fast_mode,
             effort=settings.effort,
             passes=settings.passes,
@@ -144,7 +164,7 @@ async def build_runtime(
         HookExecutionContext(
             cwd=Path(cwd).resolve(),
             api_client=resolved_api_client,
-            default_model=settings.model,
+            default_model=effective_model,
         ),
     )
     engine = QueryEngine(
@@ -152,7 +172,7 @@ async def build_runtime(
         tool_registry=tool_registry,
         permission_checker=PermissionChecker(settings.permission),
         cwd=cwd,
-        model=settings.model,
+        model=effective_model,
         system_prompt=build_runtime_system_prompt(settings, cwd=cwd, latest_user_prompt=prompt),
         max_tokens=settings.max_tokens,
         permission_prompt=permission_prompt,
@@ -187,6 +207,9 @@ async def start_runtime(bundle: RuntimeBundle) -> None:
 async def close_runtime(bundle: RuntimeBundle) -> None:
     """Close runtime-owned resources."""
     await bundle.mcp_manager.close()
+    maybe_close = getattr(bundle.api_client, "aclose", None)
+    if callable(maybe_close):
+        await maybe_close()
     await bundle.hook_executor.execute(
         HookEvent.SESSION_END,
         {"cwd": bundle.cwd, "event": HookEvent.SESSION_END.value},
@@ -198,7 +221,7 @@ def sync_app_state(bundle: RuntimeBundle) -> None:
     settings = bundle.current_settings()
     provider = detect_provider(settings)
     bundle.app_state.set(
-        model=settings.model,
+        model=bundle.engine.model,
         permission_mode=settings.permission.mode.value,
         theme=settings.theme,
         cwd=bundle.cwd,

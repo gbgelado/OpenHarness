@@ -157,7 +157,15 @@ async def test_compact_summary_and_usage_commands(tmp_path: Path, monkeypatch):
 
     usage_command, usage_args = registry.lookup("/usage")
     usage_result = await usage_command.handler(usage_args, context)
+    assert "Provider:" in usage_result.message
+    assert "Usage source:" in usage_result.message
     assert "Estimated conversation tokens" in usage_result.message
+
+    cost_command, cost_args = registry.lookup("/cost")
+    cost_result = await cost_command.handler(cost_args, context)
+    assert "Provider:" in cost_result.message
+    assert "Usage source:" in cost_result.message
+    assert "Estimated cost:" in cost_result.message
 
     stats_command, stats_args = registry.lookup("/stats")
     stats_result = await stats_command.handler(stats_args, context)
